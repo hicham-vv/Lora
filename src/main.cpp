@@ -6,6 +6,40 @@
 #include <SPI.h>
 #include <LoRa.h>
 
+#include <WiFi.h>
+#include <HTTPClient.h>
+
+
+const char * ssid = "Orange-80C3";
+// const char * ssid = "Redmi 9T";
+
+const char * password = "0GEYH04G5A2";
+// const char * password = "luffy123";
+
+
+
+byte Buffer[5];
+unsigned BytesRead = 0;
+unsigned DistanceInMM = 0;
+
+
+
+unsigned long currentMillis = 0;
+unsigned long previousMillis = 0;
+int d=0;
+int sum=1;
+String Index ="T";
+
+bool vDist = false;
+
+uint8_t distance=0;
+
+
+
+
+const char* serverName = "http://141.94.71.45:8081/datasnap/rest/Tdata/rep";
+
+
 //define the pins used by the transceiver module
 #define ss 4
 #define rst 22
@@ -17,9 +51,15 @@
 
 
 
+
+
+
 // #define Sensor
-// #define Master
-#define Slave
+#define Master
+// #define Slave
+// #define HTTPsend
+
+
 
 
 
@@ -29,16 +69,8 @@
 
 #ifdef Slave
 
-unsigned char data[4]={};
-float distance; //float distance;
-int Measure;
 
 
-unsigned long currentMillis = 0;
-unsigned long previousMillis = 0;
-int d=0;
-int sum=1;
-String Index ="T";
 
 
 void setup() {
@@ -73,20 +105,79 @@ void setup() {
   // The sync word assures you don't get LoRa messages from other LoRa transceivers
   // ranges from 0-0xFF
   LoRa.setSyncWord(0xFF);
+  LoRa.setSpreadingFactor(7);
+  LoRa.setSignalBandwidth(125E3);
   Serial.println("LoRa Initializing OK!");
 }
 
 void loop() {
 
+  unsigned prevmillis=millis();
+  while((millis()-prevmillis)<1000){
+    if (Serial2.available())
+    {
+      // Put the character in the buffer
+      Buffer[BytesRead++] = Serial2.read();
+      // Validate the input so far:
+      switch (BytesRead)
+      {
+        case 1:  // Start character
+          if (Buffer[0] != 0xFF) // Invalid start character
+          {
+            BytesRead = 0; // Start over
+          }
+          break;
 
-  Serial.print("Sending packet: ");
+        case 4:  // Checksum
+          byte sum;  // DO NOT INITIALIZE LOCAL VARIABLES IN A 'case' CLAUSE.
+          sum = Buffer[0] + Buffer[1] + Buffer[2];
+          if (sum != Buffer[3])
+          {
+            // Serial.print("Invalid checksum: 0xFF + 0x");
+            Serial.println("distance= 0");
 
-  //Send LoRa packet to receiver
-  LoRa.beginPacket();
-  LoRa.print("N1:10");
-  LoRa.endPacket();
-  delay(5000);
-}
+            distance=0;
+            BytesRead = 0; // Start over
+          }
+          break;
+        case 5: // End character
+          if (Buffer[4] != 0xFF)
+          {
+            BytesRead = 0; // Start over
+          }
+          break;
+      }
+    }
+    if (BytesRead == 5)
+    {
+      DistanceInMM = Buffer[1] * 256 + Buffer[2];
+      BytesRead = 0; // Look for a new start next time
+      if (DistanceInMM > 30)
+      {
+
+        distance= DistanceInMM / 10;
+        Serial.print("distance=");
+        Serial.print(distance);
+        Serial.println("cm");
+
+      }
+      else
+      {
+        Serial.println("distance=3cm");
+        distance=3;
+      }
+    }
+  }
+    //Send LoRa packet to receiver
+    Serial.print("Let send Here the data : Distance = ");
+    Serial.println(distance);    
+    LoRa.beginPacket();
+    String loradata="N5,";
+    loradata=loradata+distance;
+    LoRa.print(loradata);
+    LoRa.endPacket();
+    delay(5000);
+  }
 
 #endif
 
@@ -98,6 +189,8 @@ void setup() {
   while (!Serial);
   Serial.println("LoRa Receiver");
 
+
+
   pinMode(pin3V,OUTPUT);
   digitalWrite(pin3V,HIGH);
 
@@ -105,6 +198,21 @@ void setup() {
   digitalWrite(pin5V,HIGH);
 
 
+  WiFi.begin(ssid, password);
+  Serial.println("Connecting");
+  unsigned long pmillis=millis();
+  while(WiFi.status() != WL_CONNECTED && (millis()-pmillis)<5000) {
+    delay(500);
+    Serial.print(".");
+  }
+  if((millis()-pmillis)>=5000){
+    Serial.print("Can't Connect to WiFi: ");
+    ESP.restart();
+  }
+
+  Serial.println("");
+  Serial.print("Connected to WiFi network with IP Address: ");
+  Serial.println(WiFi.localIP());
   
   //setup LoRa transceiver module
   LoRa.setPins(ss, rst, dio0);
@@ -121,6 +229,8 @@ void setup() {
   // The sync word assures you don't get LoRa messages from other LoRa transceivers
   // ranges from 0-0xFF
   LoRa.setSyncWord(0xFF);
+  LoRa.setSpreadingFactor(7);
+  LoRa.setSignalBandwidth(125E3);
   Serial.println("LoRa Initializing OK!");
   delay(500);
 }
@@ -129,18 +239,31 @@ void loop() {
   // try to parse packet
   int packetSize = LoRa.parsePacket();
   if (packetSize) {
-    // received a packet
-    Serial.print("Received packet '");
-
+    Serial.print("Received packet");
     // read packet
-    while (LoRa.available()) {
+    while (LoRa.available()){
       String LoRaData = LoRa.readString();
       Serial.println(LoRaData);
-    }
+      String datatopost= "[{\"X\":\"";
+      datatopost=datatopost+LoRaData+"\"}]";
+      Serial.println(datatopost);
+      if(WiFi.status()== WL_CONNECTED){
+        WiFiClient client;
+        HTTPClient http;
+        // Your Domain name with URL path or IP address with path
+        http.begin(client, serverName);
 
-    // // print RSSI of packet
-    Serial.print("' with RSSI ");
-    Serial.println(LoRa.packetRssi());
+        http.addHeader("Content-Type", "application/json");
+        int httpResponseCode = http.POST(datatopost);
+        Serial.print("HTTP Response code: ");
+        Serial.println(httpResponseCode);
+        http.end();
+      }
+      else {
+        Serial.println("WiFi Disconnected");
+        ESP.restart();
+      }
+    }
   }
 }
 #endif
@@ -234,4 +357,70 @@ void loop()
 
   delay(5);
 }
+#endif
+
+#ifdef HTTPsend
+
+
+// the following variables are unsigned longs because the time, measured in
+// milliseconds, will quickly become a bigger number than can be stored in an int.
+unsigned long lastTime = 0;
+// Timer set to 10 minutes (600000)
+//unsigned long timerDelay = 600000;
+// Set timer to 5 seconds (5000)
+unsigned long timerDelay = 5000;
+
+void setup() {
+  Serial.begin(115200);
+
+  WiFi.begin(ssid, password);
+  Serial.println("Connecting");
+  while(WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("");
+  Serial.print("Connected to WiFi network with IP Address: ");
+  Serial.println(WiFi.localIP());
+ 
+  Serial.println("Timer set to 5 seconds (timerDelay variable), it will take 5 seconds before publishing the first reading.");
+}
+
+void loop() {
+  //Send an HTTP POST request every 10 minutes
+    //Check WiFi connection status
+    if(WiFi.status()== WL_CONNECTED){
+      WiFiClient client;
+      HTTPClient http;
+    
+      // Your Domain name with URL path or IP address with path
+      http.begin(client, serverName);
+
+      // Specify content-type header
+      // http.addHeader("Content-Type", "application/x-www-form-urlencoded");
+      // // Data to send with HTTP POST
+      // String httpRequestData = "api_key=tPmAT5Ab3j7F9&sensor=BME280&value1=24.25&value2=49.54&value3=1005.14";           
+      // // Send HTTP POST request
+      // int httpResponseCode = http.POST(httpRequestData);
+      
+      // If you need an HTTP request with a content type: application/json, use the following:
+      http.addHeader("Content-Type", "application/json");
+      int httpResponseCode = http.POST("{\"Hello Rachid \"}");
+
+      // If you need an HTTP request with a content type: text/plain
+      //http.addHeader("Content-Type", "text/plain");
+      //int httpResponseCode = http.POST("Hello, World!");
+     
+      Serial.print("HTTP Response code: ");
+      Serial.println(httpResponseCode);
+        
+      // Free resources
+      http.end();
+      delay(2000);
+    }
+    else {
+      Serial.println("WiFi Disconnected");
+    }
+}
+
 #endif
