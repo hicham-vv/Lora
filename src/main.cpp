@@ -169,17 +169,17 @@ void loop() {
         distance=3;
       }
 
-      niveauR=((distanceRef-distance)/distanceRef)*100;
-      
-
+      float a=distanceRef-distance;
+      a=a/distanceRef;
+      a=a*100;
+      niveauR=int(a);
       if(niveauR<0){
-        niveauR=100;
-      }
-      if(niveauR>97){
         niveauR=0;
       }
+      if(niveauR>=97){
+        niveauR=100;
+      }
 
-      niveauR=100-niveauR;
       Serial.print("Niveau de remplissage=");
       Serial.print(niveauR);
       Serial.println("%");
@@ -193,9 +193,9 @@ void loop() {
     if(vDist){
       //Send LoRa packet to receiver
       Serial.print("Let send Here the data : Niveau de remplissage = ");
-      Serial.println(niveauR);    
+      Serial.println(niveauR);
       LoRa.beginPacket();
-      String loradata="N2,";
+      String loradata="N4,";
       loradata=loradata+niveauR;
       LoRa.print(loradata);
       LoRa.endPacket();
