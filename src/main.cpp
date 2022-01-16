@@ -49,18 +49,20 @@ const char* serverName = "http://141.94.71.45:8081/datasnap/rest/Tdata/rep";
 
 #define pin5V 25
 
+#define Led 2
 
 
 
 
 
-// #define Sensor
 #define Master
 // #define Slave
+
+
+
+
 // #define HTTPsend
-
-
-
+// #define Sensor
 
 
 
@@ -113,7 +115,7 @@ void setup() {
 void loop() {
 
   unsigned prevmillis=millis();
-  while((millis()-prevmillis)<1000){
+  while((millis()-prevmillis)<2000){
     if (Serial2.available())
     {
       // Put the character in the buffer
@@ -172,7 +174,7 @@ void loop() {
     Serial.print("Let send Here the data : Distance = ");
     Serial.println(distance);    
     LoRa.beginPacket();
-    String loradata="N5,";
+    String loradata="N2,";
     loradata=loradata+distance;
     LoRa.print(loradata);
     LoRa.endPacket();
@@ -189,10 +191,12 @@ void setup() {
   while (!Serial);
   Serial.println("LoRa Receiver");
 
+  pinMode(Led,OUTPUT);
 
 
   pinMode(pin3V,OUTPUT);
   digitalWrite(pin3V,HIGH);
+  
 
   pinMode(pin5V,OUTPUT);
   digitalWrite(pin5V,HIGH);
@@ -209,6 +213,8 @@ void setup() {
     Serial.print("Can't Connect to WiFi: ");
     ESP.restart();
   }
+  digitalWrite(Led,HIGH);
+  
 
   Serial.println("");
   Serial.print("Connected to WiFi network with IP Address: ");
