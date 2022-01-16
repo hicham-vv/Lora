@@ -5,6 +5,7 @@
 
 #include <SPI.h>
 #include <LoRa.h>
+#include <math.h>
 
 #include <WiFi.h>
 #include <HTTPClient.h>
@@ -32,7 +33,11 @@ String Index ="T";
 
 bool vDist = false;
 
+bool confirm=false;
+
 uint8_t distance=0;
+
+uint8_t Dr=200; 
 int8_t niveauR=0;
 
 uint8_t distanceRef=123;
@@ -168,23 +173,29 @@ void loop() {
         Serial.println("distance=3cm");
         distance=3;
       }
-
-      float a=distanceRef-distance;
-      a=a/distanceRef;
-      a=a*100;
-      niveauR=int(a);
-      if(niveauR<0){
-        niveauR=0;
+      
+      if(abs(Dr-distance)>6){
+        confirm=true;
+        Dr=distance;
       }
-      if(niveauR>=97){
-        niveauR=100;
+      if(confirm){
+        float a=distanceRef-distance;
+        a=a/distanceRef;
+        a=a*100; 
+        niveauR=int(a);
+        if(niveauR<0){
+          niveauR=0;
+        }
+        if(niveauR>=97){
+          niveauR=100;
+        }
+
+        Serial.print("Niveau de remplissage=");
+        Serial.print(niveauR);
+        Serial.println("%");
+        vDist=true;
+        confirm=false;
       }
-
-      Serial.print("Niveau de remplissage=");
-      Serial.print(niveauR);
-      Serial.println("%");
-
-      vDist=true;
 
 
 
@@ -199,9 +210,10 @@ void loop() {
       loradata=loradata+niveauR;
       LoRa.print(loradata);
       LoRa.endPacket();
-      delay(5000);
       vDist=false;
     }
+    
+    delay(5000);
   }
 
 #endif
