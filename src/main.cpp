@@ -33,6 +33,9 @@ String Index ="T";
 bool vDist = false;
 
 uint8_t distance=0;
+int8_t niveauR=0;
+
+uint8_t distanceRef=123;
 
 
 
@@ -55,8 +58,8 @@ const char* serverName = "http://141.94.71.45:8081/datasnap/rest/Tdata/rep";
 
 
 
-#define Master
-// #define Slave
+// #define Master
+#define Slave
 
 
 
@@ -135,10 +138,7 @@ void loop() {
           sum = Buffer[0] + Buffer[1] + Buffer[2];
           if (sum != Buffer[3])
           {
-            // Serial.print("Invalid checksum: 0xFF + 0x");
-            Serial.println("distance= 0");
-
-            distance=0;
+            // Serial.println("Invalid checksum: 0xFF + 0x");
             BytesRead = 0; // Start over
           }
           break;
@@ -168,17 +168,40 @@ void loop() {
         Serial.println("distance=3cm");
         distance=3;
       }
+
+      niveauR=((distanceRef-distance)/distanceRef)*100;
+      
+
+      if(niveauR<0){
+        niveauR=100;
+      }
+      if(niveauR>97){
+        niveauR=0;
+      }
+
+      niveauR=100-niveauR;
+      Serial.print("Niveau de remplissage=");
+      Serial.print(niveauR);
+      Serial.println("%");
+
+      vDist=true;
+
+
+
     }
   }
-    //Send LoRa packet to receiver
-    Serial.print("Let send Here the data : Distance = ");
-    Serial.println(distance);    
-    LoRa.beginPacket();
-    String loradata="N2,";
-    loradata=loradata+distance;
-    LoRa.print(loradata);
-    LoRa.endPacket();
-    delay(5000);
+    if(vDist){
+      //Send LoRa packet to receiver
+      Serial.print("Let send Here the data : Niveau de remplissage = ");
+      Serial.println(niveauR);    
+      LoRa.beginPacket();
+      String loradata="N2,";
+      loradata=loradata+niveauR;
+      LoRa.print(loradata);
+      LoRa.endPacket();
+      delay(5000);
+      vDist=false;
+    }
   }
 
 #endif
