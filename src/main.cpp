@@ -19,6 +19,9 @@ const char * password = "0GEYH04G5A2";
 
 
 
+
+
+
 byte Buffer[5];
 unsigned BytesRead = 0;
 unsigned DistanceInMM = 0;
@@ -63,8 +66,9 @@ const char* serverName = "http://141.94.71.45:8081/datasnap/rest/Tdata/rep";
 
 
 
-// #define Master
-#define Slave
+#define Master
+// #define Slave
+// #define slaveTest
 
 
 
@@ -217,6 +221,180 @@ void loop() {
   }
 
 #endif
+
+
+
+
+
+
+
+
+
+
+
+
+
+#ifdef slaveTest
+
+
+
+
+
+void setup() {
+  //initialize Serial Monitor
+  Serial.begin(115200);
+  while (!Serial);
+  Serial2.begin(9600);
+  while (!Serial2);
+  esp_sleep_enable_timer_wakeup(15000000); // sleep timer 23 seconds
+  
+  Serial.println("LoRa Sender");
+
+  
+  pinMode(pin3V,OUTPUT);
+  digitalWrite(pin3V,HIGH);
+  pinMode(pin5V,OUTPUT);
+  digitalWrite(pin5V,HIGH);
+
+
+
+  //setup LoRa transceiver module
+  LoRa.setPins(ss, rst, dio0);
+  
+  //replace the LoRa.begin(---E-) argument with your location's frequency 
+  //433E6 for Asia
+  //866E6 for Europe
+  //915E6 for North America
+  while (!LoRa.begin(866E6)) {
+    Serial.print(".");
+    delay(500);
+  }
+   // Change sync word (0xF3) to match the receiver
+  // The sync word assures you don't get LoRa messages from other LoRa transceivers
+  // ranges from 0-0xFF
+  LoRa.setSyncWord(0xFF);
+  LoRa.setSpreadingFactor(7);
+  LoRa.setSignalBandwidth(125E3);
+  Serial.println("LoRa Initializing OK!");
+}
+
+void loop() {
+
+  unsigned prevmillis=millis();
+  while((millis()-prevmillis)<1500){
+    if (Serial2.available())
+    {
+      // Put the character in the buffer
+      Buffer[BytesRead++] = Serial2.read();
+      // Validate the input so far:
+      switch (BytesRead)
+      {
+        case 1:  // Start character
+          if (Buffer[0] != 0xFF) // Invalid start character
+          {
+            BytesRead = 0; // Start over
+          }
+          break;
+
+        case 4:  // Checksum
+          byte sum;  // DO NOT INITIALIZE LOCAL VARIABLES IN A 'case' CLAUSE.
+          sum = Buffer[0] + Buffer[1] + Buffer[2];
+          if (sum != Buffer[3])
+          {
+            // Serial.println("Invalid checksum: 0xFF + 0x");
+            BytesRead = 0; // Start over
+          }
+          break;
+        case 5: // End character
+          if (Buffer[4] != 0xFF)
+          {
+            BytesRead = 0; // Start over
+          }
+          break;
+      }
+    }
+    if (BytesRead == 5)
+    {
+      DistanceInMM = Buffer[1] * 256 + Buffer[2];
+      BytesRead = 0; // Look for a new start next time
+      if (DistanceInMM > 30)
+      {
+
+        distance= DistanceInMM / 10;
+        Serial.print("distance=");
+        Serial.print(distance);
+        Serial.println("cm");
+
+      }
+      else
+      {
+        Serial.println("distance=3cm");
+        distance=3;
+      }
+      
+      // if(abs(Dr-distance)>6){
+      //   confirm=true;
+      //   Dr=distance;
+      // }
+      // if(confirm){
+        float a=distanceRef-distance;
+        a=a/distanceRef;
+        a=a*100; 
+        niveauR=int(a);
+        if(niveauR<0){
+          niveauR=0;
+        }
+        if(niveauR>=97){
+          niveauR=100;
+        }
+
+        Serial.print("Niveau de remplissage=");
+        Serial.print(niveauR);
+        Serial.println("%");
+        // vDist=true;
+        // confirm=false;
+      // }
+
+
+
+    }
+  }
+    // if(vDist){
+      //Send LoRa packet to receiver
+      Serial.print("Let send Here the data : Niveau de remplissage = ");
+      Serial.println(niveauR);
+      LoRa.beginPacket();
+      String loradata="N2,";
+      loradata=loradata+niveauR;
+      LoRa.print(loradata);
+      LoRa.endPacket();
+      digitalWrite(pin3V,LOW);
+      digitalWrite(pin5V,LOW);
+      Serial.print("Going to sleep");
+      delay(50);
+      esp_deep_sleep_start();
+
+      // vDist=false;
+    // }
+    
+
+  }
+
+#endif
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 #ifdef Master
 
