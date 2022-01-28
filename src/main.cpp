@@ -15,8 +15,8 @@
 #define LED 2
 #define TX_POWER 20
 
-// #define Sender
-#define Receiver
+#define Sender
+// #define Receiver
 // #define GetMacAdress
 
 
@@ -25,8 +25,8 @@
 
 char MAC[9] = "bf8660c0";
 
-// uint8_t LOCAL_ADDRESS[ADDR_LENGTH] = {0xbf, 0x86, 0x61, 0x4c};
 uint8_t RECEIVER[ADDR_LENGTH] = {0xbf, 0x86, 0x61, 0x08};
+// uint8_t LOCAL_ADDRESS[ADDR_LENGTH] = {0xbf, 0x86, 0x61, 0x4c};
 
  // bf:86:61:08 Receiver MAC Adress 
 
@@ -80,7 +80,7 @@ void loop() {
 
   struct Datagram datagram; 
   if (Layer1Class::getTime() - lastTransmit >= 5000){
-    msglen = sprintf((char*)datagram.message, "%s,%i", "Lora", counter);
+    msglen = sprintf((char*)datagram.message, "%s,%i", "Hello", counter);
 
     memcpy(datagram.destination, RECEIVER, ADDR_LENGTH);
     datagram.type = 's'; // can be anything, but 's' for 'sensor'
@@ -153,7 +153,7 @@ void setup() {
     Serial.println(" --> Layer1 initialized");
     LL2 = new LL2Class(Layer1); // initialize Layer2
     LL2->setLocalAddress(MAC); // this should either be randomized or set using the wifi mac address
-    LL2->setInterval(1); // set to zero to disable routing packets
+    LL2->setInterval(10000); // set to zero to disable routing packets
     if (LL2->init() == 0){
       Serial.println(" --> LoRaLayer2 initialized");
     }
