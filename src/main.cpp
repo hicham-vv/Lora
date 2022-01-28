@@ -1,218 +1,305 @@
 
-//*********************Sender***************//
-#include <stdio.h>
-#include <stdlib.h>
 
 
-#include <Layer1_LoRa.h>
-#include <LoRaLayer2.h>
+#define Sender
+// #define Master
 
-#define LORA_CS 4
-#define LORA_RST 22
-#define LORA_IRQ 21
-// #define LORA_FREQ 915E6
-#define LORA_FREQ 868E6
-#define LED 2
-#define TX_POWER 20
-
-// #define Sender
-#define Receiver
-// #define GetMacAdress
 
 
 
 #ifdef Sender
+//******************************** LORA MESH CLIENT ************************************//
+#include <SPI.h>
+#include <RHMesh.h>
+#include <RH_RF95.h>
+#include <EEPROM.h>
 
-char MAC[9] = "bf8660c0";
+#define EEPROM_SIZE 1 // ESP32 max 512, Arduino Uno max 1024
 
-// uint8_t LOCAL_ADDRESS[ADDR_LENGTH] = {0xbf, 0x86, 0x61, 0x4c};
-uint8_t RECEIVER[ADDR_LENGTH] = {0xbf, 0x86, 0x61, 0x08};
+// #define uS_TO_S_FACTOR 1000000  /* Conversion factor for micro seconds to seconds */
+// #define TIME_TO_SLEEP  5        /* Time ESP32 will go to sleep (in seconds) */
 
- // bf:86:61:08 Receiver MAC Adress 
+// ESP32
+#define RFM95_CS 4
+#define RFM95_RST 22
+#define RFM95_INT 21 //*/
+
+// Change to 434.0 or other frequency, must match RX's freq!
+#define RF95_FREQ 868.0
+
+int nodeIdSelf;
+int nodeIdDestination = 3;
+int startTimer;
+
+// Singleton instance of the radio driver
+RH_RF95 driver(RFM95_CS, RFM95_INT);
+
+// Class to manage message delivery and receipt, using the driver declared above
+RHMesh *manager;
+
+String message;
+String messageResponse = "Alert Received!";
+
+// ----------------------
+// SETUP
+// === LoRa
+void setup_lora() {
+//   driver.setTxPower(23);
+// //   driver.setTxPower(23, false);
+//   driver.setSpreadingFactor(7);
+//   driver.setFrequency(RF95_FREQ);
+//   driver.setCADTimeout(500);
+
+  //  if (!driver.init()) {
+  //   Serial.println("LoRa radio init failed");
+  //   Serial.println("Uncomment '#define SERIAL_DEBUG' in RH_RF95.cpp for detailed debug info");
+  //   // while (1);
+  // }
+  // else{
+  //   Serial.println("LoRa radio init OK!");
+  // }
+  // if (!driver.setFrequency(RF95_FREQ)) {
+  //   Serial.println("setFrequency failed");
+  //   // while (1);
+  // }
+  // else{
+  //   Serial.print("Set Freq to: "); Serial.println(RF95_FREQ);
+  // }
+  // driver.setSpreadingFactor(7);
+  // driver.setTxPower(23);
+  // driver.setCADTimeout(500);
+
+  // EEPROM.begin(EEPROM_SIZE); 
+  // nodeIdSelf = EEPROM.read(0);
+  nodeIdSelf = 1;
 
 
-Layer1Class *Layer1;
-LL2Class *LL2;
+  manager = new RHMesh(driver, nodeIdSelf);
+  
+  if (!manager->init()) {
+      Serial.println(F("init failed"));
+  } else {
+      Serial.println("Mesh Node \"" + (String) nodeIdSelf + "\" Up and Running!");
+  }
 
-int counter = 0;
-long lastTransmit;
+  driver.setTxPower(23, false);
+  driver.setFrequency(RF95_FREQ);
+  driver.setCADTimeout(500);
+}
+
+// ----------------------
+// ACTIONS
+// === LoRa
+uint8_t buf[RH_MESH_MAX_MESSAGE_LEN];
+
+void sendMessage(String _message, int _nodeIdDestination, int _sendMessageCount) {
+  for (int i=0; i<_sendMessageCount; i++) {
+    Serial.println("Sending to RF95 Mesh Node \"" + (String) _nodeIdDestination + "\"!");
+    // Send a message to a rf95_mesh_node
+    // A route to the destination will be automatically discovered.
+
+    char messageChar[_message.length() + 1];
+    strcpy(messageChar, _message.c_str());
+    Serial.println("START1");
+    // Serial.println(_message);
+    // Serial.println(messageChar);
+    int errorLog = manager->sendtoWait((uint8_t*) messageChar, sizeof(messageChar), nodeIdDestination);
+    Serial.println("START2");
+    if (errorLog == RH_ROUTER_ERROR_NONE)
+    {
+      Serial.println("START3");
+      // It has been reliably delivered to the next node.
+      // Now wait for a reply from the ultimate server
+      uint8_t len = sizeof(buf);
+      uint8_t from;    
+      if (manager->recvfromAckTimeout(buf, &len, 3000, &from))
+      {
+        Serial.print("Got Reply from ");
+        Serial.print(from, HEX);
+        Serial.println(":");
+        Serial.println((char*)buf);
+        Serial.println("lastRssi = " + (String) driver.lastRssi());
+      }
+      else
+      {
+        Serial.println("No reply, is rf95_mesh_node1, rf95_mesh_node2 and rf95_mesh_node3 running?");
+      }
+    }
+    else
+       Serial.println("sendtoWait failed. Are the intermediate mesh nodes running?");
+  }
+}
+
+void listen_lora() {
+  uint8_t len = sizeof(buf);
+  uint8_t nodeIdFrom;
+//   Serial.println("Listen-LORA");
+//   delay(1000);
+  if (manager->recvfromAck(buf, &len, &nodeIdFrom))  // if (manager->recvfromAckTimeout(buf, &len, 3000, &nodeIdFrom))
+  {
+    Serial.print("Got Message nodeIdFrom ");
+    Serial.print(nodeIdFrom, HEX);
+    Serial.println(":");
+    Serial.println((char*)buf);
+
+    Serial.println("lastRssi = " + (String) driver.lastRssi());
+    
+    // Send a reply back to the originator client
+    char messageResponseChar[messageResponse.length() + 1];
+    strcpy(messageResponseChar, messageResponse.c_str());
+    if (manager->sendtoWait((uint8_t*) messageResponseChar, sizeof(messageResponseChar), nodeIdFrom) != RH_ROUTER_ERROR_NONE)
+      Serial.println("sendtoWait failed");
+  }
+}
 
 void setup() {
-  Serial.begin(115200);
-  while(!Serial);
-  delay(2000);
-  pinMode(26, OUTPUT); //EN 3.3V
-  digitalWrite(26, HIGH);
+    Serial.begin(115200);
+    pinMode(26, OUTPUT); //EN 3.3V
+    // pinMode(25, OUTPUT); //EN 5V
+    digitalWrite(26, HIGH);
+    // digitalWrite(25, HIGH);
 
-  SPI.begin(18, 19, 23, 4); // 
+    // esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP * uS_TO_S_FACTOR);
 
-  Serial.println("* Initializing LoRa...");
-  Serial.println("LoRa Sender");
-
-  Layer1 = new Layer1Class();
-  Layer1->setPins(LORA_CS, LORA_RST, LORA_IRQ);
-  Layer1->setTxPower(TX_POWER);
-  Layer1->setLoRaFrequency(LORA_FREQ);
-  if (Layer1->init())
-  {
-    Serial.println(" --> Layer1 initialized");
-    LL2 = new LL2Class(Layer1); // initialize Layer2
-    LL2->setLocalAddress(MAC); // this should either be randomized or set using the wifi mac address
-    LL2->setInterval(10000); // set to zero to disable routing packets
-    if (LL2->init() == 0){
-      Serial.println(" --> LoRaLayer2 initialized");
-    }
-    else{
-      Serial.println(" --> Failed to initialize LoRaLayer2");
-    }
-  }
-  else
-  {
-    Serial.println(" --> Failed to initialize LoRa");
-  }
-  lastTransmit = Layer1Class::getTime();
+    setup_lora();
+    startTimer = millis();
+    message = "NODE " + (String) nodeIdSelf; //Hello! from node " + (String) nodeIdSelf + ", to node " + (String) nodeIdDestination
 }
 
-void loop() {
-  LL2->daemon();
-  int msglen = 0;
-  int datagramsize = 0;
-
-  struct Datagram datagram; 
-  if (Layer1Class::getTime() - lastTransmit >= 5000){
-    msglen = sprintf((char*)datagram.message, "%s,%i", "Lora", counter);
-
-    memcpy(datagram.destination, RECEIVER, ADDR_LENGTH);
-    datagram.type = 's'; // can be anything, but 's' for 'sensor'
-    Serial.print("DATALen= ");
-    Serial.println(msglen);
-    datagramsize = msglen + HEADER_LENGTH;
-    Serial.println(datagramsize);
-    LL2->writeData(datagram, datagramsize);
-    counter++;
-    Serial.println((char*)datagram.message);
-    lastTransmit = Layer1Class::getTime();
-    Serial.println();
+void loop() 
+{
+  if (millis() - startTimer > 5000) {
+    startTimer = millis();
+    sendMessage(message, nodeIdDestination, 1);
+    // //   digitalWrite(25, LOW); //EN 5V
+    // digitalWrite(26, LOW); //EN 3.3V
+    // esp_deep_sleep_start(); 
   }
+  listen_lora();  
 
 }
+
 
 #endif
 
 
+#ifdef Master
 
 
-#ifdef Receiver
+//******************************** LORA MESH SERVER ************************************//
+// PRE-REQUISITES
+// === LoRa
+#include <SPI.h>
+#include <RHMesh.h>
+#include <RH_RF95.h>
+#include <EEPROM.h>
 
-//********************Receiver*********************//
-#include <stdio.h>
-#include <stdlib.h>
+#define EEPROM_SIZE 1 // ESP32 max 512, Arduino Uno max 1024
 
-//LoRaLayer2
-#include <Layer1_LoRa.h>
-#include <LoRaLayer2.h>
-// #define LL2_DEBUG
+// ESP32
+#define RFM95_CS 4
+#define RFM95_RST 22
+#define RFM95_INT 21 //*/
 
-#define LORA_CS 4
-#define LORA_RST 22
-#define LORA_IRQ 21
+// Change to 434.0 or other frequency, must match RX's freq!
+#define RF95_FREQ 868.0
+
+int nodeIdSelf;
+ 
+// Singleton instance of the radio driver
+RH_RF95 driver(RFM95_CS, RFM95_INT);
+
+// Class to manage message delivery and receipt, using the driver declared above
+RHMesh *manager;
+
+String messageResponse = "Alert Received!";
+
+// ----------------------
+// SETUP
+// === LoRa
+void setup_lora() {
+//   driver.setSpreadingFactor(7);
+  //   driver.setTxPower(23);
+// //   driver.setTxPower(23, false);
+//   driver.setFrequency(RF95_FREQ);
+//   driver.setCADTimeout(500);
+
+  // if (!driver.init()) {
+  //   Serial.println("LoRa radio init failed");
+  //   Serial.println("Uncomment '#define SERIAL_DEBUG' in RH_RF95.cpp for detailed debug info");
+  //   // while (1);
+  // }
+  // else{
+  //   Serial.println("LoRa radio init OK!");
+  // }
+  // if (!driver.setFrequency(RF95_FREQ)) {
+  //   Serial.println("setFrequency failed");
+  //   // while (1);
+  // }
+  // else{
+  //   Serial.print("Set Freq to: "); Serial.println(RF95_FREQ);
+  // }
+  // driver.setSpreadingFactor(7);
+  // driver.setTxPower(23);
+  // driver.setCADTimeout(500);
+
+  // EEPROM.begin(EEPROM_SIZE);
+  // nodeIdSelf = EEPROM.read(0);
+  nodeIdSelf = 3;
 
 
-#define LORA_FREQ 868E6
-#define LED 2
-#define TX_POWER 20
+  manager = new RHMesh(driver, nodeIdSelf);
+  if (!manager->init()) {
+      Serial.println(F("init failed"));
+  } else {
+      Serial.println("Mesh Node \"" + (String) nodeIdSelf + "\" Up and Running!");
+  }
 
-char MAC[9] = "bf866108";
-// uint8_t LOCAL_ADDRESS[ADDR_LENGTH] = {0xbf, 0x86, 0x60, 0xb8};
-// GATEWAY is the receiver 
-// uint8_t SENDER[ADDR_LENGTH] = {0xc0, 0xd3, 0xf0, 0x0d};
+  driver.setTxPower(23, false);
+  driver.setFrequency(RF95_FREQ);
+  driver.setCADTimeout(500); 
+}
 
-Layer1Class *Layer1;
-LL2Class *LL2;
+// ----------------------
+// ACTIONS
+// === LoRa
+uint8_t buf[RH_MESH_MAX_MESSAGE_LEN];
 
-int counter = 0;
+void listen_lora() {
+  uint8_t len = sizeof(buf);
+  uint8_t nodeIdFrom;
+  
+  if (manager->recvfromAck(buf, &len, &nodeIdFrom))
+  {
+    Serial.print("Got Message nodeIdFrom ");
+    Serial.print(nodeIdFrom, HEX);
+    Serial.println(":");
+    Serial.println((char*)buf);
 
+    Serial.println("lastRssi = " + (String) driver.lastRssi());
+    
+    // Send a reply back to the originator client
+    char messageResponseChar[messageResponse.length() + 1];
+    strcpy(messageResponseChar, messageResponse.c_str());
+    if (manager->sendtoWait((uint8_t*) messageResponseChar, sizeof(messageResponseChar), nodeIdFrom) != RH_ROUTER_ERROR_NONE)
+      Serial.println("sendtoWait failed");
+  }
+}
+
+// ----------------------
+// MAIN
 void setup() {
-  Serial.begin(115200);
-  while(!Serial);
-  pinMode(26, OUTPUT); //EN 3.3V
-
-  digitalWrite(26, HIGH);
-
-
-  SPI.begin(18, 19, 23, 4); // not needed for ttgo-lora32-v1
-  Serial.println("* Initializing LoRa...");
-  Serial.println("LoRa Receiver");
-
-  Layer1 = new Layer1Class();
-  Layer1->setPins(LORA_CS, LORA_RST, LORA_IRQ);
-  Layer1->setTxPower(TX_POWER);
-  Layer1->setLoRaFrequency(LORA_FREQ);
-  if (Layer1->init())
-  {
-    Serial.println(" --> Layer1 initialized");
-    LL2 = new LL2Class(Layer1); // initialize Layer2
-    LL2->setLocalAddress(MAC); // this should either be randomized or set using the wifi mac address
-    LL2->setInterval(1); // set to zero to disable routing packets
-    if (LL2->init() == 0){
-      Serial.println(" --> LoRaLayer2 initialized");
-    }
-    else{
-      Serial.println(" --> Failed to initialize LoRaLayer2");
-    }
-  }
-  else
-  {
-    Serial.println(" --> Failed to initialize LoRa");
-  }
+    Serial.begin(115200);
+    pinMode(26, OUTPUT); //EN 3.3V
+    // pinMode(25, OUTPUT); //EN 5V
+    digitalWrite(26, HIGH);
+    // digitalWrite(25, HIGH);
+    setup_lora();
 }
 
-void loop() {
-
-  char routes[256];
-  char neighbors[256];
-
-  LL2->daemon();
-
-  struct Packet packet = LL2->readData();
-  if(packet.totalLength > HEADER_LENGTH)
-  {
-    Serial.println(((char *)packet.datagram.message));
-
-    // LL2->getRoutingTable(routes);
-    // Serial.printf("%s", routes);
-
-    LL2->getNeighborTable(neighbors);
-    Serial.println(neighbors);
-  }
-}
-
-#endif
-
-
-
-
-
-
-#ifdef GetMacAdress
-
-//***************GET MAC Address*******************//
-// #include <SPI.h>
-#ifdef ESP32
-  #include <WiFi.h>
-#else
-  #include <ESP8266WiFi.h>
-#endif
-
-void setup(){
-  Serial.begin(115200);
-  Serial.println();
-  Serial.print("ESP Board MAC Address:  ");
-  Serial.println(WiFi.macAddress());
-}
-
-void loop(){
-
+void loop()
+{
+  listen_lora();
 }
 
 #endif
