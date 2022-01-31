@@ -7,6 +7,9 @@
 #include <LoRa.h>
 #include <math.h>
 
+#include "esp_task_wdt.h"
+
+
 #include <WiFi.h>
 #include <HTTPClient.h>
 
@@ -66,8 +69,8 @@ const char* serverName = "http://141.94.71.45:8081/datasnap/rest/Tdata/rep";
 
 
 
-#define Master
-// #define Slave
+// #define Master
+#define Slave
 // #define slaveTest
 
 
@@ -93,7 +96,9 @@ void setup() {
   while (!Serial);
   Serial2.begin(9600);
   while (!Serial2);
-  
+
+  esp_task_wdt_init(10, true); //enable panic so ESP32 restarts
+  esp_task_wdt_add(NULL); //add current thread to WDT watch
   Serial.println("LoRa Sender");
 
   
@@ -218,6 +223,7 @@ void loop() {
     }
     
     delay(5000);
+    esp_task_wdt_reset();
   }
 
 #endif
