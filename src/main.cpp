@@ -488,7 +488,7 @@ void loop() {
         Serial.println("WiFi Disconnected");
         esp_restart();
       }
-      if(compteur==5){
+      if(compteur==3){
         esp_restart();
       }
     }
