@@ -9,6 +9,7 @@
 
 #include "esp_task_wdt.h"
 
+#include <SPIFFS.h>
 
 #include <WiFi.h>
 #include <HTTPClient.h>
@@ -22,16 +23,18 @@ const char * ssid = "Redmi9TH";
 // const char * password = "0GEYH04G5A2";
 // const char * password = "ifran123";
 const char * password = "luffy123";
+// const char * password = "tantan-1";
 
 
 
+#define debug
 
-// #define Master
-#define Slave
+#define Master
+// #define Slave
 // #define slaveTest
 
 
-String device = "8"; // write the device Number Here !
+String device = "0"; // write the device Number Here !
 
 
 
@@ -39,7 +42,7 @@ String device = "8"; // write the device Number Here !
 // #define Sensor
 
 
-
+String fileName = "";
 
 byte Buffer[5];
 unsigned BytesRead = 0;
@@ -125,8 +128,8 @@ void setup() {
   esp_task_wdt_add(NULL); //add current thread to WDT watch
   Serial.println("LoRa Sender");
 
-  // esp_sleep_enable_timer_wakeup(5000000); // 5s
-  esp_sleep_enable_timer_wakeup(3600000000); // 1hrs
+  esp_sleep_enable_timer_wakeup(10000000); // 10S
+  // esp_sleep_enable_timer_wakeup(3600000000); // 1hrs
 
 
 
@@ -156,93 +159,96 @@ void setup() {
   // The sync word assures you don't get LoRa messages from other LoRa transceivers
   // ranges from 0-0xFF
   LoRa.setSyncWord(0xFF);
-  LoRa.setSpreadingFactor(7);
+  LoRa.setSpreadingFactor(12);
   LoRa.setSignalBandwidth(125E3);
   Serial.println("LoRa Initializing OK!");
+  delay(1500);
+
 }
 
 void loop() {
 
-  for(int i=0;i<3;i++){
+  // for(int i=0;i<3;i++){
       unsigned prevmillis=millis();
-      while((millis()-prevmillis)<2500){
-        if (Serial2.available())
-        {
-          // Put the character in the buffer
-          Buffer[BytesRead++] = Serial2.read();
-          // Validate the input so far:
-          switch (BytesRead)
-          {
-            case 1:  // Start character
-              if (Buffer[0] != 0xFF) // Invalid start character
-              {
-                BytesRead = 0; // Start over
-              }
-              break;
+      // while((millis()-prevmillis)<2500){
+      //   if (Serial2.available())
+      //   {
+      //     // Put the character in the buffer
+      //     Buffer[BytesRead++] = Serial2.read();
+      //     // Validate the input so far:
+      //     switch (BytesRead)
+      //     {
+      //       case 1:  // Start character
+      //         if (Buffer[0] != 0xFF) // Invalid start character
+      //         {
+      //           BytesRead = 0; // Start over
+      //         }
+      //         break;
 
-            case 4:  // Checksum
-              byte sum;  // DO NOT INITIALIZE LOCAL VARIABLES IN A 'case' CLAUSE.
-              sum = Buffer[0] + Buffer[1] + Buffer[2];
-              if (sum != Buffer[3])
-              {
-                // Serial.println("Invalid checksum: 0xFF + 0x");
-                BytesRead = 0; // Start over
-              }
-              break;
-            case 5: // End character
-              if (Buffer[4] != 0xFF)
-              {
-                BytesRead = 0; // Start over
-              }
-              break;
-          }
-        }
-        if (BytesRead == 5)
-        {
-          DistanceInMM = Buffer[1] * 256 + Buffer[2];
-          BytesRead = 0; // Look for a new start next time
-          if (DistanceInMM > 30)
-          {
+      //       case 4:  // Checksum
+      //         byte sum;  // DO NOT INITIALIZE LOCAL VARIABLES IN A 'case' CLAUSE.
+      //         sum = Buffer[0] + Buffer[1] + Buffer[2];
+      //         if (sum != Buffer[3])
+      //         {
+      //           // Serial.println("Invalid checksum: 0xFF + 0x");
+      //           BytesRead = 0; // Start over
+      //         }
+      //         break;
+      //       case 5: // End character
+      //         if (Buffer[4] != 0xFF)
+      //         {
+      //           BytesRead = 0; // Start over
+      //         }
+      //         break;
+      //     }
+      //   }
+      //   if (BytesRead == 5)
+      //   {
+      //     DistanceInMM = Buffer[1] * 256 + Buffer[2];
+      //     BytesRead = 0; // Look for a new start next time
+      //     if (DistanceInMM > 30)
+      //     {
 
-            distance= DistanceInMM / 10;
-            Serial.print("distance=");
-            Serial.print(distance);
-            Serial.println("cm");
+      //       distance= DistanceInMM / 10;
+      //       Serial.print("distance=");
+      //       Serial.print(distance);
+      //       Serial.println("cm");
 
-          }
-          else
-          {
-            Serial.println("distance=3cm");
-            distance=3;
-          }
+      //     }
+      //     else
+      //     {
+      //       Serial.println("distance=3cm");
+      //       distance=3;
+      //     }
           
-          if(abs(Dr-distance)>15){
-            confirm=true;
-            Dr=distance;
-          }
-          if(confirm){
-            float a=distanceRef-distance;
-            a=a/distanceRef;
-            a=a*100; 
-            niveauR=int(a);
-            if(niveauR<0){
-              niveauR=0;
-            }
-            if(niveauR>=97){
-              niveauR=100;
-            }
+      //     if(abs(Dr-distance)>15){
+      //       confirm=true;
+      //       Dr=distance;
+      //     }
+      //     if(confirm){
+      //       float a=distanceRef-distance;
+      //       a=a/distanceRef;
+      //       a=a*100; 
+      //       niveauR=int(a);
+      //       if(niveauR<0){
+      //         niveauR=0;
+      //       }
+      //       if(niveauR>=97){
+      //         niveauR=100;
+      //       }
 
-            // Serial.print("Niveau de remplissage=");
-            // Serial.print(niveauR);
-            // Serial.println("%");
-            vDist=true;
-            confirm=false;
-          }
+      //       // Serial.print("Niveau de remplissage=");
+      //       // Serial.print(niveauR);
+      //       // Serial.println("%");
+      //       vDist=true;
+      //       confirm=false;
+      //     }
 
 
 
-        }
-      }
+      //   }
+      // }
+      niveauR=100;
       esp_task_wdt_reset();
       Serial.println("Scanning Done");
       if(true){
@@ -250,20 +256,20 @@ void loop() {
         Serial.print("Let send Here the data : Niveau de remplissage = ");
         Serial.println(niveauR);
         // for(int i=0;i<3;i++){
-          Serial.print(i);Serial.print("...");
+          // Serial.print(i);Serial.print("...");
           LoRa.beginPacket();
           String loradata="N"+device+",";
           loradata=loradata+niveauR;
           LoRa.print(loradata);
           LoRa.endPacket();
           blinkLed(500,25);
-          delay(4500);
+          delay(9000);
           esp_task_wdt_reset();
         // }
         vDist=false;
       } 
 
-  }
+  // }
 
   esp_task_wdt_delete(NULL);
   esp_task_wdt_deinit();
@@ -442,6 +448,25 @@ void setup() {
   esp_task_wdt_add(NULL); //add current thread to WDT watch
   Serial.begin(115200);
   while (!Serial);
+  delay(500);
+  // if (!SPIFFS.begin(true)){
+  //   #ifdef debug
+  //   Serial.println("An Error has occurred while mounting SPIFFS");
+  //   #endif
+  //   blinkLed(2000,250);
+  //   esp_restart();
+  // }
+  // else{
+  //   #ifdef debug
+  //   Serial.println("SPIFFS Begin");
+  //   #endif
+  //   #ifdef FormatMemory
+  //   Serial.println("Formating ESP.....");
+  //   SPIFFS.format();
+  //   Serial.println("Formating ESP finish");
+  //   #endif
+  // }
+
   Serial.println("LoRa Receiver");
 
   pinMode(HardReset,INPUT_PULLUP);
@@ -457,30 +482,30 @@ void setup() {
   digitalWrite(pin5V,HIGH);
 
   WiFi.disconnect(true);
-  delay(100);
-  WiFi.begin(ssid, password);
-  Serial.println("Connecting");
-  unsigned long pmillis=millis();
-  while(WiFi.status() != WL_CONNECTED && (millis()-pmillis)<4500) {
-    delay(500);
-    Serial.print(".");
-  }
-  if((millis()-pmillis)>=4500){
-    WiFi.disconnect();
-    WiFi.reconnect();
-    Serial.print("Can't Connect to WiFi: ");
-    blinkLed(3000,500);
-    pinMode(HardReset,OUTPUT);
-    delay(500);
-    pinMode(HardReset,LOW);
-    esp_restart();
-  }
+  // delay(100);
+  // WiFi.begin(ssid, password);
+  // Serial.println("Connecting");
+  // unsigned long pmillis=millis();
+  // while(WiFi.status() != WL_CONNECTED && (millis()-pmillis)<4500) {
+  //   delay(500);
+  //   Serial.print(".");
+  // }
+  // if((millis()-pmillis)>=4500){
+  //   WiFi.disconnect();
+  //   WiFi.reconnect();
+  //   Serial.print("Can't Connect to WiFi: ");
+  //   blinkLed(3000,500);
+  //   pinMode(HardReset,OUTPUT);
+  //   delay(500);
+  //   pinMode(HardReset,LOW);
+  //   esp_restart();
+  // }
   digitalWrite(Led_esp,HIGH);
   esp_task_wdt_reset();
   delay(2000);
   digitalWrite(Led_esp,LOW);
 
-  WiFi.onEvent(WiFiStationDisconnected, SYSTEM_EVENT_STA_DISCONNECTED);
+  // WiFi.onEvent(WiFiStationDisconnected, SYSTEM_EVENT_STA_DISCONNECTED);
   
   //setup LoRa transceiver module
   LoRa.setPins(ss, rst, dio0);
@@ -497,10 +522,10 @@ void setup() {
   // The sync word assures you don't get LoRa messages from other LoRa transceivers
   // ranges from 0-0xFF
   LoRa.setSyncWord(0xFF);
-  LoRa.setSpreadingFactor(7);
+  LoRa.setSpreadingFactor(12);
   LoRa.setSignalBandwidth(125E3);
   Serial.println("LoRa Initializing OK!");
-  delay(500);
+  delay(1500);
   esp_task_wdt_reset();
 
 }
@@ -513,52 +538,53 @@ void loop() {
       // read packet
       while (LoRa.available()){
         String LoRaData = LoRa.readString();
-        // Serial.println(LoRa.packetRssi());
+        Serial.println(LoRa.packetRssi());
         Serial.println(LoRaData);
+        
         String datatopost= "[{\"X\":\"";
         datatopost=datatopost+LoRaData+"\"}]";
         Serial.println(datatopost);
-        if(WiFi.status()== WL_CONNECTED){
+        // if(WiFi.status()== WL_CONNECTED){
 
-          // Your Domain name with URL path or IP address with path
-          if(a){
-            http.begin(client, serverName);
-            a=false;
-          }
+        //   // Your Domain name with URL path or IP address with path
+        //   if(a){
+        //     http.begin(client, serverName);
+        //     a=false;
+        //   }
 
-          http.addHeader("Content-Type", "application/json");
-          int i=0;
-          for(i=0;i<5;i++){
-            int httpResponseCode = http.POST(datatopost);
-            Serial.print("HTTP Response code: ");
-            if(httpResponseCode==200){
-              Serial.println("Good Server");
-              Serial.println(httpResponseCode);
-              blinkLed(500,25);
-              digitalWrite(Led_esp,LOW);
-              break;
-            }else{
-              Serial.println(httpResponseCode);
-              Serial.println("Bad Server");
-            }
-            esp_task_wdt_reset();
-          }
-          if(i>=5){
-            Serial.println("Can't Send data to server !!!!!!!!");
-            delay(500);
-            pinMode(HardReset,OUTPUT);
-            delay(500);
-            pinMode(HardReset,LOW);
-            esp_restart();
-          }
-        }
-        else {
-          Serial.println("WiFi Disconnected");
-            pinMode(HardReset,OUTPUT);
-            delay(500);
-            pinMode(HardReset,LOW);
-          esp_restart();
-        }
+        //   http.addHeader("Content-Type", "application/json");
+        //   int i=0;
+        //   for(i=0;i<5;i++){
+        //     int httpResponseCode = http.POST(datatopost);
+        //     Serial.print("HTTP Response code: ");
+        //     if(httpResponseCode==200){
+        //       Serial.println("Good Server");
+        //       Serial.println(httpResponseCode);
+        //       blinkLed(500,25);
+        //       digitalWrite(Led_esp,LOW);
+        //       break;
+        //     }else{
+        //       Serial.println(httpResponseCode);
+        //       Serial.println("Bad Server");
+        //     }
+        //     esp_task_wdt_reset();
+        //   }
+        //   if(i>=5){
+        //     Serial.println("Can't Send data to server !!!!!!!!");
+        //     delay(500);
+        //     pinMode(HardReset,OUTPUT);
+        //     delay(500);
+        //     pinMode(HardReset,LOW);
+        //     esp_restart();
+        //   }
+        // }
+        // else {
+        //   Serial.println("WiFi Disconnected");
+        //     pinMode(HardReset,OUTPUT);
+        //     delay(500);
+        //     pinMode(HardReset,LOW);
+        //   esp_restart();
+        // }
       }
     }
   esp_task_wdt_reset();
