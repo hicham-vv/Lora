@@ -19,12 +19,12 @@
 
 #define debug
 
-// #define MasterReceiver
+#define MasterReceiver
 // #define MasterTracBal
 
 
 // #define Master
-#define Slave
+// #define Slave
 // #define slaveTest
 // #define HTTPsend
 // #define Sensor
@@ -195,7 +195,7 @@ void setup() {
 
   Serial.println("LoRa Receiver");
 
-  pinMode(HardReset,INPUT_PULLUP);
+  // pinMode(HardReset,INPUT_PULLUP);
 
   pinMode(Led_esp,OUTPUT);
   digitalWrite(Led_esp,LOW);
@@ -234,6 +234,7 @@ void setup() {
   Serial.println("LoRa Initializing OK!");
   delay(500);
   esp_task_wdt_reset();
+  previousMillis=millis();
 
 }
 
@@ -252,6 +253,10 @@ void loop() {
       LoRa.print("OK");
       delay(1000);
       LoRa.endPacket();
+    }
+
+    if((millis()-previousMillis)>1800000){
+      esp_restart();
     }
   
   esp_task_wdt_reset();
