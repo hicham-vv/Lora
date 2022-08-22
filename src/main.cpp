@@ -19,8 +19,8 @@
 
 #define debug
 
-#define MasterReceiver
-// #define MasterTracBal
+// #define MasterReceiver
+#define MasterTracBal
 
 
 // #define Master
@@ -268,7 +268,7 @@ void loop() {
 void setup() {
   //initialize Serial Monitor
 
-  pinMode(HardReset,INPUT_PULLUP);
+  pinMode(Led_esp,OUTPUT);
 
   esp_task_wdt_init(120, true); //enable panic so ESP32 restarts
   esp_task_wdt_add(NULL); //add current thread to WDT watch
@@ -279,6 +279,7 @@ void setup() {
 
   Serial2.begin(9600);
   while (!Serial2);
+  pinMode(Led_esp,OUTPUT);
   delay(500);
   if (!SPIFFS.begin(true)){
     #ifdef debug
@@ -286,10 +287,10 @@ void setup() {
     #endif
     blinkLed(1000,100);
     delay(10);
-    pinMode(HardReset,OUTPUT);
-    delay(500);
-    pinMode(HardReset,LOW);
-    delay(500);
+    // pinMode(HardReset,OUTPUT);
+    // delay(500);
+    // pinMode(HardReset,LOW);
+    // delay(500);
     esp_restart();
 
   }
@@ -319,10 +320,10 @@ void setup() {
     #endif
     blinkLed(5000,100); // Blink if I2C not begin
     delay(10);
-    pinMode(HardReset,OUTPUT);
-    delay(500);
-    pinMode(HardReset,LOW);
-    delay(500);
+    // pinMode(HardReset,OUTPUT);
+    // delay(500);
+    // pinMode(HardReset,LOW);
+    // delay(500);
     esp_restart();
   }else{
     #ifdef debug
@@ -338,10 +339,10 @@ void setup() {
     #endif
     blinkLed(5000,500);
     delay(10);
-    pinMode(HardReset,OUTPUT);
-    delay(500);
-    pinMode(HardReset,LOW);
-    delay(500);
+    // pinMode(HardReset,OUTPUT);
+    // delay(500);
+    // pinMode(HardReset,LOW);
+    // delay(500);
     esp_restart();
   }
   else{
@@ -452,9 +453,9 @@ void loop() {
     Serial.println("Let restart the Systeme");
     #endif
     delay(50);
-    pinMode(HardReset,OUTPUT);
-    delay(500);
-    pinMode(HardReset,LOW);
+    // pinMode(HardReset,OUTPUT);
+    // delay(500);
+    // pinMode(HardReset,LOW);
     delay(500);
     esp_restart();
     }
