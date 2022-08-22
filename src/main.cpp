@@ -19,8 +19,8 @@
 
 #define debug
 
-// #define MasterReceiver
-#define MasterTracBal
+#define MasterReceiver
+// #define MasterTracBal
 
 
 // #define Master
@@ -249,6 +249,9 @@ void loop() {
         Serial.println(LoRaData);
         Serial2.print(LoRaData);
       }
+      blinkLed(500,25);
+      digitalWrite(Led_esp,LOW);
+      delay(500);
       LoRa.beginPacket();
       LoRa.print("OK");
       delay(1000);
@@ -1109,7 +1112,7 @@ void blinkLed(uint16_t time_Out,uint16_t ms){
 
  static void UART_ISR_ROUTINE(void *pvParameters)
 {
-  int i=1;
+  int i=0;
     uart_event_t event;
     // size_t buffered_size;
     bool exit_condition = false;
@@ -1121,34 +1124,34 @@ void blinkLed(uint16_t time_Out,uint16_t ms){
             //Handle received event
             if (event.type == UART_DATA) {
  
-                uint8_t UART1_data[100];
+                uint8_t UART1_data[100]={0};
                 int UART1_data_length = 0;
                 ESP_ERROR_CHECK(uart_get_buffered_data_len(UART_NUM_1, (size_t*)&UART1_data_length));
                 UART1_data_length = uart_read_bytes(UART_NUM_1, UART1_data, UART1_data_length, 100);
              
                 // Serial.println("LEN= ");Serial.println(UART1_data_length);
  
-                // Serial.print("DATA= ");
+                Serial.print("DATA=");
                 String data= (char*)UART1_data;
                 // for(byte i=0; i<UART1_data_length;i++){
                 //   Serial.print((char)UART1_data[i]);
                 // }
-                String ii=String(i);
+                Serial.println(data);
+                String Si=String(i);
                 fileName="/";
                 fileName=fileName+data;
-                fileName=fileName+ii+".txt";
+                fileName=fileName+Si+".txt";
                 i++;
-
                 File filewrite = SPIFFS.open(fileName,"w");
                 String datatopost= "[{\"X\":\"";
                 datatopost=datatopost+data+"\"}]";
                 filewrite.println(datatopost);
-                Serial.println(datatopost);
+                // Serial.println(datatopost);
                 filewrite.close();
-                #ifdef debug
-                Serial.print("File wrote UART Event--> ");
-                Serial.println(fileName);
-                #endif 
+                // #ifdef debug
+                // Serial.print("File wrote UART Event--> ");
+                // Serial.println(fileName);
+                // #endif 
                 Serial.println("");
              
             }
