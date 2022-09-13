@@ -19,12 +19,12 @@
 
 #define debug
 
-// #define MasterReceiver
+#define MasterReceiver
 // #define MasterTracBal
 
 
 // #define Master
-#define Slave
+// #define Slave
 // #define slaveTest
 // #define HTTPsend
 // #define Sensor
