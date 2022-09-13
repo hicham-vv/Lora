@@ -19,18 +19,18 @@
 
 #define debug
 
-#define MasterReceiver
+// #define MasterReceiver
 // #define MasterTracBal
 
 
 // #define Master
-// #define Slave
+#define Slave
 // #define slaveTest
 // #define HTTPsend
 // #define Sensor
 
 
-String device = "14"; // write the device Number Here !
+String device = "0"; // write the device Number Here !
 
 
 const char * ssid = "Orange-80C3";
@@ -221,7 +221,7 @@ void setup() {
   //433E6 for Asia
   //866E6 for Europe
   //915E6 for North America
-  while (!LoRa.begin(866E6)) {
+  while (!LoRa.begin(868000000)) {
     Serial.println(".");
     delay(500);
   }
@@ -246,6 +246,9 @@ void loop() {
       // read packet
       while (LoRa.available()){
         String LoRaData = LoRa.readString();
+        String RSSI=String(LoRa.packetRssi());
+        Serial.print(LoRaData);Serial.print("\t");Serial.println(RSSI);
+        LoRaData=LoRaData+","+RSSI;
         Serial.println(LoRaData);
         Serial2.print(LoRaData);
       }
@@ -485,7 +488,7 @@ void setup() {
   esp_task_wdt_add(NULL); //add current thread to WDT watch
   Serial.println("LoRa Sender");
 
-  // esp_sleep_enable_timer_wakeup(5000000); // 5s
+  // esp_sleep_enable_timer_wakeup(10000000); // 5s
   // esp_sleep_enable_timer_wakeup(3600000000); // 1hrs
   esp_sleep_enable_timer_wakeup(14400000000); // 4hrs
 
@@ -507,7 +510,7 @@ void setup() {
   //433E6 for Asia
   //866E6 for Europe
   //915E6 for North America
-  while (!LoRa.begin(866E6)) {
+  while (!LoRa.begin(868000000)) {
     Serial.print(".");
     delay(500);
   }
@@ -841,7 +844,7 @@ void setup() {
   //433E6 for Asia
   //866E6 for Europe
   //915E6 for North America
-  while (!LoRa.begin(866E6)) {
+  while (!LoRa.begin(867E6)) {
     Serial.println(".");
     delay(500);
   }
