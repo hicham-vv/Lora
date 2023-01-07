@@ -19,8 +19,8 @@
 
 #define debug
 
-#define MasterReceiver
-// #define MasterTracBal
+// #define MasterReceiver
+#define MasterTracBal
 
 
 // #define Master
@@ -380,23 +380,14 @@ void setup() {
  
     // void esp_log_level_set(const char *tag, esp_log_level_tlevel)
     esp_log_level_set(TAG, ESP_LOG_INFO);
- 
- 
-   
     // esp_err_tuart_set_pin(uart_port_tuart_num, int tx_io_num, int rx_io_num, int rts_io_num, int cts_io_num)
     uart_set_pin(NUMERO_PORTA_SERIALE, U2TXD, U2RXD, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
- 
- 
     // uart_driver_install(UART_NUM_1, uart_buffer_size, uart_buffer_size, 10, &uart_queue, 0));
     // uart_driver_install(Numero_porta, RXD_BUFFER, TXD_Buffer, event queue handle and size, flags to allocate an interrupt)
     uart_driver_install(NUMERO_PORTA_SERIALE, BUF_SIZE, BUF_SIZE, 20, &uart1_queue, 0);
- 
- 
     //Create a task to handler UART event from ISR
     xTaskCreate(UART_ISR_ROUTINE, "UART_ISR_ROUTINE", 2048, NULL, 12, NULL);
-
     // delay(1000);
-
     // xTaskCreatePinnedToCore(TaskPopHTTPPOST,"Http",10000,NULL,2,&handle_taskPopHTTPPOST,1);
     esp_task_wdt_reset();
 
@@ -630,7 +621,7 @@ void loop() {
   esp_task_wdt_deinit();
   digitalWrite(pin3V,LOW);
   digitalWrite(pin5V,LOW);
-  digitalWrite(Led_esp,LOW);      
+  digitalWrite(Led_esp,LOW);
   Serial.print("Going to sleep");
   delay(250);
   esp_deep_sleep_start();
@@ -1127,7 +1118,7 @@ void blinkLed(uint16_t time_Out,uint16_t ms){
             //Handle received event
             if (event.type == UART_DATA) {
  
-                uint8_t UART1_data[100]={0};
+                uint8_t UART1_data[200]={0}; 
                 int UART1_data_length = 0;
                 ESP_ERROR_CHECK(uart_get_buffered_data_len(UART_NUM_1, (size_t*)&UART1_data_length));
                 UART1_data_length = uart_read_bytes(UART_NUM_1, UART1_data, UART1_data_length, 100);
@@ -1139,6 +1130,7 @@ void blinkLed(uint16_t time_Out,uint16_t ms){
                 // for(byte i=0; i<UART1_data_length;i++){
                 //   Serial.print((char)UART1_data[i]);
                 // }
+
                 Serial.println(data);
                 String Si=String(i);
                 fileName="/";
@@ -1146,10 +1138,11 @@ void blinkLed(uint16_t time_Out,uint16_t ms){
                 fileName=fileName+Si+".txt";
                 i++;
                 File filewrite = SPIFFS.open(fileName,"w");
+                data.replace("};{","\"},{\"X\":\"");
                 String datatopost= "[{\"X\":\"";
                 datatopost=datatopost+data+"\"}]";
                 filewrite.println(datatopost);
-                // Serial.println(datatopost);
+                Serial.println(datatopost);
                 filewrite.close();
                 // #ifdef debug
                 // Serial.print("File wrote UART Event--> ");
