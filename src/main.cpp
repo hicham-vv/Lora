@@ -1133,8 +1133,9 @@ void blinkLed(uint16_t time_Out,uint16_t ms){
 
                 Serial.println(data);
                 String Si=String(i);
+                String rand= String (random(1,1000));
                 fileName="/";
-                fileName=fileName+data;
+                fileName=fileName+rand;
                 fileName=fileName+Si+".txt";
                 i++;
                 File filewrite = SPIFFS.open(fileName,"w");
