@@ -1134,15 +1134,16 @@ void blinkLed(uint16_t time_Out,uint16_t ms){
              
                 // Serial.println("LEN= ");Serial.println(UART1_data_length);
  
-                Serial.print("DATA=");
+                // Serial.print("DATA=");
                 String data= (char*)UART1_data;
                 // for(byte i=0; i<UART1_data_length;i++){
                 //   Serial.print((char)UART1_data[i]);
                 // }
                 Serial.println(data);
+                String rand=String(random(1,500));
                 String Si=String(i);
                 fileName="/";
-                fileName=fileName+data;
+                fileName=fileName+rand;
                 fileName=fileName+Si+".txt";
                 i++;
                 File filewrite = SPIFFS.open(fileName,"w");
