@@ -13,7 +13,7 @@
 #include "driver/uart.h"
 
 
-// #define FormatMemory
+#define FormatMemory
 
 
 
@@ -98,7 +98,7 @@ static void UART_ISR_ROUTINE(void *pvParameters);
 static QueueHandle_t uart1_queue;
 String fileName = "";
 
-char LoraToPost[50] = ""; // last GPS data to post
+char LoraToPost[300] = ""; // last GPS data to post
 
 
 static const char * TAG = "";      
@@ -1115,10 +1115,14 @@ void blinkLed(uint16_t time_Out,uint16_t ms){
 
  static void UART_ISR_ROUTINE(void *pvParameters)
 {
-  int i=0;
+
+    Serial.println("First");
+    int i=0;
+    bool concat=false;
     uart_event_t event;
+    String dataplus="";
     // size_t buffered_size;
-    bool exit_condition = false;
+    // bool exit_condition = false;
     //Infinite loop to run main bulk of task
     while (1) {
         //Loop will continually block (i.e. wait) on event messages from the event queue
@@ -1126,37 +1130,60 @@ void blinkLed(uint16_t time_Out,uint16_t ms){
          
             //Handle received event
             if (event.type == UART_DATA) {
- 
-                uint8_t UART1_data[240]={0};
+                uint8_t UART1_data[250]={0};
                 int UART1_data_length = 0;
                 ESP_ERROR_CHECK(uart_get_buffered_data_len(UART_NUM_1, (size_t*)&UART1_data_length));
-                UART1_data_length = uart_read_bytes(UART_NUM_1, UART1_data, UART1_data_length, 200);
-             
-                // Serial.println("LEN= ");Serial.println(UART1_data_length);
- 
-                // Serial.print("DATA=");
+                UART1_data_length = uart_read_bytes(UART_NUM_1, UART1_data, UART1_data_length, 100);
+
+
+                Serial.print("LEN=");Serial.println(UART1_data_length);
                 String data= (char*)UART1_data;
+                // Serial.println(data);
+
+                if(concat){
+                  Serial.println("concatenation");
+                  concat=false;
+                  dataplus=dataplus+data;
+                  data=dataplus;
+                  dataplus="";
+                }
+
+                if(UART1_data_length>=120){
+                  // Serial.println("Concatenatation true ");
+                  concat=true;
+                  dataplus=dataplus+data;
+                }
+
+                if(concat==false){
+                  Serial.println("*******************************");
+                  Serial.println(data);
+                  Serial.println("*******************************");
+                  String rand=String(random(1,500));
+                  String Si=String(i);
+                  fileName="/";
+                  fileName=fileName+rand;
+                  fileName=fileName+Si+".txt";
+                  i++;
+                  File filewrite = SPIFFS.open(fileName,"w");
+                  String datatopost= "[{\"X\":\"";
+                  datatopost=datatopost+data+"\"}]";
+                  filewrite.println(datatopost);
+                  // Serial.println(datatopost);
+                  filewrite.close();
+                  // #ifdef debug
+                  // Serial.print("File wrote UART Event--> ");
+                  // Serial.println(fileName);
+                  // #endif 
+                  Serial.println("");
+
+                }
+
+
+                // Serial.print("DATA=");
                 // for(byte i=0; i<UART1_data_length;i++){
                 //   Serial.print((char)UART1_data[i]);
                 // }
-                Serial.println(data);
-                String rand=String(random(1,500));
-                String Si=String(i);
-                fileName="/";
-                fileName=fileName+rand;
-                fileName=fileName+Si+".txt";
-                i++;
-                File filewrite = SPIFFS.open(fileName,"w");
-                String datatopost= "[{\"X\":\"";
-                datatopost=datatopost+data+"\"}]";
-                filewrite.println(datatopost);
-                // Serial.println(datatopost);
-                filewrite.close();
-                // #ifdef debug
-                // Serial.print("File wrote UART Event--> ");
-                // Serial.println(fileName);
-                // #endif 
-                Serial.println("");
+
              
             }
            
@@ -1178,9 +1205,9 @@ void blinkLed(uint16_t time_Out,uint16_t ms){
         }
        
         //If you want to break out of the loop due to certain conditions, set exit condition to true
-        if (exit_condition) {
-            break;
-        }
+        // if (exit_condition) {
+        //     break;
+        // }
     }
    
     //Out side of loop now. Task needs to clean up and self terminate before returning
@@ -1198,9 +1225,9 @@ void GPSPopHTTPPOST(File file){
   #ifdef debug
   Serial.print("File found:");Serial.println(file.name());
   Serial.println(data);
-  Serial.println("if there is * let remplace it by imei ");
+  // Serial.println("if there is * let remplace it by imei ");
   #endif
-  data.replace("*",imei);
+  // data.replace("*",imei);
   int dataLen=data.length();
   if(dataLen>7){
     // Confirm Format JSON
