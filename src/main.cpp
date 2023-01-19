@@ -48,8 +48,8 @@ const char * password = "tantan-1";
 
 
 #define NUMERO_PORTA_SERIALE UART_NUM_1
-#define BUF_SIZE (1024 * 2)
-#define RD_BUF_SIZE (1024)
+#define BUF_SIZE (2048 * 2)
+#define RD_BUF_SIZE (2048)
 
 
 
@@ -393,7 +393,7 @@ void setup() {
  
  
     //Create a task to handler UART event from ISR
-    xTaskCreate(UART_ISR_ROUTINE, "UART_ISR_ROUTINE", 2048, NULL, 12, NULL);
+    xTaskCreate(UART_ISR_ROUTINE, "UART_ISR_ROUTINE", 4096, NULL, 12, NULL);
 
     // delay(1000);
 
@@ -1127,10 +1127,10 @@ void blinkLed(uint16_t time_Out,uint16_t ms){
             //Handle received event
             if (event.type == UART_DATA) {
  
-                uint8_t UART1_data[100]={0};
+                uint8_t UART1_data[240]={0};
                 int UART1_data_length = 0;
                 ESP_ERROR_CHECK(uart_get_buffered_data_len(UART_NUM_1, (size_t*)&UART1_data_length));
-                UART1_data_length = uart_read_bytes(UART_NUM_1, UART1_data, UART1_data_length, 100);
+                UART1_data_length = uart_read_bytes(UART_NUM_1, UART1_data, UART1_data_length, 200);
              
                 // Serial.println("LEN= ");Serial.println(UART1_data_length);
  
