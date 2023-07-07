@@ -11,9 +11,11 @@
 #include <HTTPClient.h>
 #include <HardwareSerial.h>
 #include "driver/uart.h"
+#include "RTClib.h"
 
 
-#define FormatMemory
+
+// #define FormatMemory
 
 
 
@@ -21,6 +23,10 @@
 
 // #define MasterReceiver
 #define MasterTracBal
+#define SetTime //  Pour définir l'horloge  
+
+
+
 
 
 // #define Master
@@ -29,6 +35,14 @@
 // #define HTTPsend
 // #define Sensor
 
+
+
+
+
+
+
+
+RTC_DS3231 rtc;
 
 String device = "0"; // write the device Number Here !
 
@@ -271,22 +285,19 @@ void loop() {
 
 #ifdef MasterTracBal
 
+HardwareSerial SerialAT(2);
+#define atRX 17
+#define atTX 16
 void setup() {
   //initialize Serial Monitor
 
-  pinMode(Led_esp,OUTPUT);
-
-  esp_task_wdt_init(120, true); //enable panic so ESP32 restarts
-  esp_task_wdt_add(NULL); //add current thread to WDT watch
+  // esp_task_wdt_init(240, true); //enable panic so ESP32 restarts
+  // esp_task_wdt_add(NULL); //add current thread to WDT watch
   Serial.begin(115200);
   while (!Serial);
-  delay(500);
-
-
-  Serial2.begin(9600);
-  while (!Serial2);
   pinMode(Led_esp,OUTPUT);
-  delay(500);
+  Serial2.begin(9600,SERIAL_8N1,17,16);
+  while (!Serial2);
   if (!SPIFFS.begin(true)){
     #ifdef debug
     Serial.println("An Error has occurred while mounting SPIFFS");
@@ -314,7 +325,7 @@ void setup() {
   esp_task_wdt_reset();
   pinMode(Reg_Enable,OUTPUT);
   digitalWrite(Reg_Enable,LOW);
-  delay(2500);
+  delay(5000);
   pinMode(Reg_Enable,INPUT);
   pinMode(QwiicEnable,INPUT);
   esp_task_wdt_reset();
@@ -365,6 +376,147 @@ void setup() {
   io.digitalWrite(VIO,HIGH);
   io.pinMode(PWS,INPUT);
   io.pinMode(NS,INPUT);
+
+  if (! rtc.begin()) {
+    Serial.println("Couldn't find RTC");
+    while(true);
+  }
+
+  #ifdef SetTime
+  // if (rtc.lostPower()) {
+      // Serial.println("RTC lost power, let's set the time!");
+      Serial.println("Let's set the time!");
+
+    // When time needs to be set on a new device, or after a power loss, the
+    // following line sets the RTC to the date & time this sketch was compiled
+      rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+    // This line sets the RTC with an explicit date & time, for example to set
+    // January 21, 2014 at 3am you would call:
+    // rtc.adjust(DateTime(2014, 1, 21, 3, 0, 0));
+  // }
+
+  // When time needs to be re-set on a previously configured device, the
+  // following line sets the RTC to the date & time this sketch was compiled
+  // rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+  // This line sets the RTC with an explicit date & time, for example to set
+  // January 21, 2014 at 3am you would call:
+  // rtc.adjust(DateTime(2014, 1, 21, 3, 0, 0));
+
+  #endif
+    DateTime now = rtc.now();
+    Serial.println("******* TIME *******");
+    Serial.print(now.year(), DEC);
+    Serial.print('/');
+    Serial.print(now.month(), DEC);
+    Serial.print('/');
+    Serial.print(now.day(), DEC);
+    Serial.print(now.hour(), DEC);
+    Serial.print(':');
+    Serial.print(now.minute(), DEC);
+    Serial.print(':');
+    Serial.print(now.second(), DEC);
+    Serial.println();
+    Serial.print("UNIX TIME : ");
+    Serial.println(now.unixtime());
+
+
+    File filewrite1 = SPIFFS.open("/rec/a","w");
+    filewrite1.print("one");
+    filewrite1.close();
+
+    File filewrite2 = SPIFFS.open("/rec/b","w");
+    filewrite2.print("two");
+    filewrite2.close();
+
+    File filewrite3 = SPIFFS.open("/rec/c","w");
+    filewrite3.print("three");
+    filewrite3.close();
+
+    File filewrite4 = SPIFFS.open("/rec/d","w");
+    filewrite4.print("four");
+    filewrite4.close();
+
+
+
+  File root = SPIFFS.open("/rec");
+ 
+  File file = root.openNextFile();
+  // Serial.println(file.name());
+  // File fileread =SPIFFS.open(file.path(),"r");
+  // String data= fileread.readStringUntil('\n');
+  // Serial.println(data);
+  // fileread.close();
+
+  String datatopost="[";
+  while(file){
+      Serial.print("FILE: ");
+      Serial.println(file.name());
+      File fileread =SPIFFS.open(file.path(),"r");
+      String data= fileread.readStringUntil('\n');
+      Serial.println(data);
+
+      Serial.println("****");
+      Serial.println(datatopost);
+      datatopost=datatopost+data+",";
+      Serial.println(datatopost);
+      Serial.println("***");
+      fileread.close();
+      SPIFFS.remove(file.path());
+      file = root.openNextFile();
+  }
+  datatopost=datatopost+"]";
+  Serial.println(datatopost);
+  
+  if(true){
+
+    File root = SPIFFS.open("/rec");
+  
+    File file = root.openNextFile();
+
+    String datatopost="[";
+
+    while(file){
+      Serial.print("FILE: ");
+      Serial.println(file.name());
+      File fileread =SPIFFS.open(file.path(),"r");
+      String data= fileread.readStringUntil('\n');
+      Serial.println(data);
+      datatopost=datatopost+data;
+      fileread.close();
+      SPIFFS.remove(file.path());
+      file = root.openNextFile();
+  }
+
+
+  }
+
+
+  Serial.println("DONE");
+
+  while(true);
+ 
+
+    
+
+    // File root = SPIFFS.open("/tosend");
+
+    // File file = root.openNextFile();
+
+
+
+
+  // while(true){
+  //   if(Serial2.available()){
+
+  //     char z=Serial2.read();
+  //     Serial.print(z);
+  //   }
+  //   if(Serial.available()){
+
+  //     char z=Serial.read();
+  //     Serial2.write(z);
+  //   }
+  // }
 
       //Configuro la porta Serial1 (tutti i parametri hanno anche un get per effettuare controll)
     uart_config_t Configurazione_UART1 = {
@@ -431,8 +583,9 @@ void loop() {
             gsmstatus=gsmSetup();
             esp_task_wdt_reset();
           }else{
-            blinkLed(4000,50);
+            blinkLed(10000,50);
             digitalWrite(Led_esp,LOW);
+            delay(30000);
           }
         }
       }
@@ -448,13 +601,13 @@ void loop() {
         Serial.println("No more Data to send Ready to sleep is true");
         #endif
         gsmstatus=false;
-        delay(30000);
+        delay(60000);
 
       }
     esp_task_wdt_reset();
     delay(5000);
     unsigned long ms=millis()-previousMillis;
-    if(ms>3600000 || CompteurGSM>5){
+    if(ms>7200000 || CompteurGSM>5){
     #ifdef debug
     Serial.println("Let restart the Systeme");
     #endif
@@ -1116,7 +1269,6 @@ void blinkLed(uint16_t time_Out,uint16_t ms){
  static void UART_ISR_ROUTINE(void *pvParameters)
 {
 
-    Serial.println("First");
     int i=0;
     bool concat=false;
     uart_event_t event;
@@ -1160,15 +1312,21 @@ void blinkLed(uint16_t time_Out,uint16_t ms){
                   Serial.println("*******************************");
                   String rand=String(random(1,500));
                   String Si=String(i);
+
+                  DateTime now = rtc.now();
+
+                  String timeStamp=String(now.unixtime());
+
+                  
                   fileName="/";
                   fileName=fileName+rand;
                   fileName=fileName+Si+".txt";
                   i++;
                   File filewrite = SPIFFS.open(fileName,"w");
-                  String datatopost= "[{\"X\":\"";
-                  datatopost=datatopost+data+"\"}]";
+                  String datatopost= "{\"X\":\"";
+                  datatopost=datatopost+data+","+timeStamp+"\"}";
                   filewrite.println(datatopost);
-                  // Serial.println(datatopost);
+                  Serial.println(datatopost);
                   filewrite.close();
                   // #ifdef debug
                   // Serial.print("File wrote UART Event--> ");
@@ -1219,7 +1377,7 @@ void blinkLed(uint16_t time_Out,uint16_t ms){
 void GPSPopHTTPPOST(File file){
   httppostgood=false;
   i_http=0;
-  File fileread =SPIFFS.open(file.name(),"r");
+  File fileread =SPIFFS.open(file.path(),"r");
   String data= fileread.readStringUntil('\n');
   fileread.close();
   #ifdef debug
@@ -1268,7 +1426,7 @@ void GPSPopHTTPPOST(File file){
   else{
     httppostgood=true;
     for(int i=0;i<2;i++){
-      if(SPIFFS.remove(file.name())){
+      if(SPIFFS.remove(file.path())){
         #ifdef debug
         Serial.print("Remouved Bad file:");Serial.println(file.name());
         #endif
@@ -1281,7 +1439,7 @@ void GPSPopHTTPPOST(File file){
       httppostgood=true;
       i_http=0;
       for(int i=0;i<2;i++){
-        if(SPIFFS.remove(file.name())){
+        if(SPIFFS.remove(file.path())){
           #ifdef debug
           Serial.print("remouved file:");Serial.println(file.name());
           #endif
@@ -1629,6 +1787,29 @@ bool gprsOn()
     }else return false;
   }else return false;
 }
+
+
+bool getNTPtime()
+{
+  #ifdef debug
+  Serial.println("turning ON GPRS...");
+  #endif
+  if(sendAtCom(5000, "AT+CFUN=1", "OK", "ERROR", 2)){
+    Serial.println("OK1");
+    if (sendAtCom(5000, "AT+SAPBR=3,1,\"CONTYPE\",\"GPRS\"", "OK", "OK", 2)){
+      Serial.println("OK2");
+      if (sendAtCom(5000, "AT+SAPBR=1,1", "OK", "OK", 2)){
+        Serial.println("OK3");
+        // if (sendAtCom(5000, "AT+CIICR", "OK", "ERROR", 5)){
+          // if (sendAtCom(5000, "AT+CIFSR", ">", "ERROR", 5)){
+            return true;
+      }else return false;
+    }else return false;
+  }else return false;
+}
+
+
+
 bool fireHttpAction(long timeout, char const *Commande, char const *Rep, char const *Error)
 {
   flushSim();
