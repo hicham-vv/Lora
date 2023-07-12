@@ -12,6 +12,7 @@
 #include <HardwareSerial.h>
 #include "driver/uart.h"
 #include "RTClib.h"
+#include <EEPROM.h>
 
 
 
@@ -23,7 +24,7 @@
 
 // #define MasterReceiver
 #define MasterTracBal
-#define SetTime //  Pour définir l'horloge  
+// #define SetTime //  Pour définir l'horloge
 
 
 
@@ -58,6 +59,7 @@ const char * ssid = "Orange-80C3";
 const char * password = "tantan-1";
 
 
+#define EEPROM_SIZE 1
 
 
 
@@ -112,7 +114,7 @@ static void UART_ISR_ROUTINE(void *pvParameters);
 static QueueHandle_t uart1_queue;
 String fileName = "";
 
-char LoraToPost[300] = ""; // last GPS data to post
+char LoraToPost[2000] = ""; // last GPS data to post
 
 
 static const char * TAG = "";      
@@ -377,13 +379,14 @@ void setup() {
   io.pinMode(PWS,INPUT);
   io.pinMode(NS,INPUT);
 
+  EEPROM.begin(EEPROM_SIZE); 
   if (! rtc.begin()) {
     Serial.println("Couldn't find RTC");
-    while(true);
+    esp_restart();
   }
 
   #ifdef SetTime
-  // if (rtc.lostPower()) {
+  if (rtc.lostPower()) {
       // Serial.println("RTC lost power, let's set the time!");
       Serial.println("Let's set the time!");
 
@@ -393,7 +396,7 @@ void setup() {
     // This line sets the RTC with an explicit date & time, for example to set
     // January 21, 2014 at 3am you would call:
     // rtc.adjust(DateTime(2014, 1, 21, 3, 0, 0));
-  // }
+  }
 
   // When time needs to be re-set on a previously configured device, the
   // following line sets the RTC to the date & time this sketch was compiled
@@ -404,121 +407,111 @@ void setup() {
 
   #endif
     DateTime now = rtc.now();
+    #ifdef debug
     Serial.println("******* TIME *******");
     Serial.print(now.year(), DEC);
     Serial.print('/');
     Serial.print(now.month(), DEC);
     Serial.print('/');
     Serial.print(now.day(), DEC);
+    Serial.print(" ");
     Serial.print(now.hour(), DEC);
     Serial.print(':');
     Serial.print(now.minute(), DEC);
     Serial.print(':');
     Serial.print(now.second(), DEC);
     Serial.println();
-    Serial.print("UNIX TIME : ");
-    Serial.println(now.unixtime());
+    #endif
 
+    uint8_t hour=now.hour();
 
-    File filewrite1 = SPIFFS.open("/rec/a","w");
-    filewrite1.print("one");
-    filewrite1.close();
+    uint8_t nextHour = EEPROM.read(0);
+    nextHour=EEPROM.read(0);
+    Serial.print("Stocked hour:");
+    Serial.println(nextHour);
+    Serial.println("");
 
-    File filewrite2 = SPIFFS.open("/rec/b","w");
-    filewrite2.print("two");
-    filewrite2.close();
+  /*******  Initialisation Next Hour   ******/
+  if(nextHour>=24){
+    Serial.println("Initialisation ......");
 
-    File filewrite3 = SPIFFS.open("/rec/c","w");
-    filewrite3.print("three");
-    filewrite3.close();
+    if(hour>=18){
+      nextHour=0;
+    }else  if(hour>=12){
+      nextHour=18;
 
-    File filewrite4 = SPIFFS.open("/rec/d","w");
-    filewrite4.print("four");
-    filewrite4.close();
+    }else  if(hour>=6){
+      nextHour=12;
+    }else{
+      nextHour=6;
+    }
 
-
-
-  File root = SPIFFS.open("/rec");
- 
-  File file = root.openNextFile();
-  // Serial.println(file.name());
-  // File fileread =SPIFFS.open(file.path(),"r");
-  // String data= fileread.readStringUntil('\n');
-  // Serial.println(data);
-  // fileread.close();
-
-  String datatopost="[";
-  while(file){
-      Serial.print("FILE: ");
-      Serial.println(file.name());
-      File fileread =SPIFFS.open(file.path(),"r");
-      String data= fileread.readStringUntil('\n');
-      Serial.println(data);
-
-      Serial.println("****");
-      Serial.println(datatopost);
-      datatopost=datatopost+data+",";
-      Serial.println(datatopost);
-      Serial.println("***");
-      fileread.close();
-      SPIFFS.remove(file.path());
-      file = root.openNextFile();
+    EEPROM.write(0, nextHour);
+    EEPROM.commit(); //For the changes to be saved.
   }
-  datatopost=datatopost+"]";
-  Serial.println(datatopost);
+  /*********************************/
   
-  if(true){
+  if(hour==nextHour){
+    // if(true){
+
+    Serial.println("Matching");
+    nextHour=nextHour+6;
+    if(nextHour>=24){
+      nextHour=0;
+    }
+    EEPROM.write(0, nextHour); // Stock next hour as 0 
+    EEPROM.commit(); //For the changes to be saved.
+
 
     File root = SPIFFS.open("/rec");
-  
     File file = root.openNextFile();
 
-    String datatopost="[";
+    if(file){
+      String datatopost="[";
+        for(int i=0;i<60;i++){
+            Serial.print("FILE: ");
+            Serial.println(file.name());
+            File fileread =SPIFFS.open(file.path(),"r");
+            String data= fileread.readStringUntil('\n');
+            fileread.close();
+            Serial.println(data);
+            SPIFFS.remove(file.path());
 
-    while(file){
-      Serial.print("FILE: ");
-      Serial.println(file.name());
-      File fileread =SPIFFS.open(file.path(),"r");
-      String data= fileread.readStringUntil('\n');
-      Serial.println(data);
-      datatopost=datatopost+data;
-      fileread.close();
-      SPIFFS.remove(file.path());
-      file = root.openNextFile();
+
+            root = SPIFFS.open("/rec");
+            file = root.openNextFile();
+            if(!file){
+              Serial.println("**************");
+              datatopost=datatopost+data;
+              Serial.println(datatopost);
+              Serial.println("**************");
+              Serial.println("Let break");
+              break;
+            }
+            Serial.println("****");
+            datatopost=datatopost+data+",";
+            Serial.println("***");
+
+        }
+      datatopost=datatopost+"]";
+
+      String timeStamp=String(now.unixtime());
+      fileName="/send/";
+      fileName=fileName+timeStamp;
+      fileName=fileName+".txt";
+      File filewrite = SPIFFS.open(fileName,"w");
+      filewrite.print(datatopost);
+      Serial.println(datatopost);
+      filewrite.close();
+    }
   }
 
 
-  }
-
-
-  Serial.println("DONE");
-
-  while(true);
- 
-
-    
-
-    // File root = SPIFFS.open("/tosend");
-
-    // File file = root.openNextFile();
+    Serial.print("Next Hour is ");Serial.println(nextHour);
 
 
 
-
-  // while(true){
-  //   if(Serial2.available()){
-
-  //     char z=Serial2.read();
-  //     Serial.print(z);
-  //   }
-  //   if(Serial.available()){
-
-  //     char z=Serial.read();
-  //     Serial2.write(z);
-  //   }
-  // }
-
-      //Configuro la porta Serial1 (tutti i parametri hanno anche un get per effettuare controll)
+        //Configuro la porta Serial1 (tutti i parametri hanno anche un get per effettuare controll)
     uart_config_t Configurazione_UART1 = {
         .baud_rate = 9600,
         .data_bits = UART_DATA_8_BITS,
@@ -564,7 +557,7 @@ void loop() {
   uint8_t CompteurGSM=0;
   while (true){
       esp_task_wdt_reset();
-      File root = SPIFFS.open("/");
+      File root = SPIFFS.open("/send");
       File file = root.openNextFile();
       if(file){
         if(gsmstatus){
@@ -607,7 +600,7 @@ void loop() {
     esp_task_wdt_reset();
     delay(5000);
     unsigned long ms=millis()-previousMillis;
-    if(ms>7200000 || CompteurGSM>5){
+    if((ms>2700000 || CompteurGSM>5) && (simON==false) ){
     #ifdef debug
     Serial.println("Let restart the Systeme");
     #endif
@@ -1268,7 +1261,7 @@ void blinkLed(uint16_t time_Out,uint16_t ms){
 
  static void UART_ISR_ROUTINE(void *pvParameters)
 {
-
+    Serial.println("\nTask UART runing\n");
     int i=0;
     bool concat=false;
     uart_event_t event;
@@ -1292,40 +1285,37 @@ void blinkLed(uint16_t time_Out,uint16_t ms){
                 String data= (char*)UART1_data;
                 // Serial.println(data);
 
-                if(concat){
-                  Serial.println("concatenation");
-                  concat=false;
-                  dataplus=dataplus+data;
-                  data=dataplus;
-                  dataplus="";
-                }
+                // if(concat){
+                //   Serial.println("concatenation");
+                //   concat=false;
+                //   dataplus=dataplus+data;
+                //   data=dataplus;
+                //   dataplus="";
+                // }
 
-                if(UART1_data_length>=120){
-                  // Serial.println("Concatenatation true ");
-                  concat=true;
-                  dataplus=dataplus+data;
-                }
+                // if(UART1_data_length>=120){
+                //   // Serial.println("Concatenatation true ");
+                //   concat=true;
+                //   dataplus=dataplus+data;
+                // }
 
-                if(concat==false){
+                // if(concat==false){
                   Serial.println("*******************************");
                   Serial.println(data);
                   Serial.println("*******************************");
-                  String rand=String(random(1,500));
+
                   String Si=String(i);
-
                   DateTime now = rtc.now();
-
                   String timeStamp=String(now.unixtime());
 
-                  
-                  fileName="/";
-                  fileName=fileName+rand;
+                  fileName="/rec/";
+                  fileName=fileName+timeStamp;
                   fileName=fileName+Si+".txt";
                   i++;
                   File filewrite = SPIFFS.open(fileName,"w");
                   String datatopost= "{\"X\":\"";
                   datatopost=datatopost+data+","+timeStamp+"\"}";
-                  filewrite.println(datatopost);
+                  filewrite.print(datatopost);
                   Serial.println(datatopost);
                   filewrite.close();
                   // #ifdef debug
@@ -1334,7 +1324,7 @@ void blinkLed(uint16_t time_Out,uint16_t ms){
                   // #endif 
                   Serial.println("");
 
-                }
+                // }
 
 
                 // Serial.print("DATA=");
@@ -1398,14 +1388,14 @@ void GPSPopHTTPPOST(File file){
     if(data[2]!='"'){
       data[2]='"';
     }
-    if(data[dataLen-4]!='"'){
-      data[dataLen-4]='"';
+    if(data[dataLen-3]!='"'){
+      data[dataLen-3]='"';
     }
-    if(data[dataLen-3]!='}'){
-      data[dataLen-3]='}';
+    if(data[dataLen-2]!='}'){
+      data[dataLen-2]='}';
     }
-    if(data[dataLen-2]!=']'){
-      data[dataLen-2]=']';
+    if(data[dataLen-1]!=']'){
+      data[dataLen-1]=']';
     }
     // End Confirm Format JSON
 
@@ -1416,7 +1406,7 @@ void GPSPopHTTPPOST(File file){
     }
 
     String Newdata="";
-    Newdata =  data.substring(0,data.length()-1);
+    Newdata =  data.substring(0,data.length());
     #ifdef debug
     Serial.println("Checked New data");
     Serial.println(Newdata);
