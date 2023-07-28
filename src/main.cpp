@@ -19,15 +19,15 @@
 // #define FormatMemory
 
 
-
 #define debug
-
-// #define MasterReceiver
-#define MasterTracBal
 // #define SetTime //  Pour définir l'horloge
 
 
+#define MasterTracBal
 
+
+
+// #define MasterReceiver
 
 
 // #define Master
@@ -36,16 +36,9 @@
 // #define HTTPsend
 // #define Sensor
 
-
-
-
-
-
-
-
 RTC_DS3231 rtc;
 
-String device = "0"; // write the device Number Here !
+String device = "0"; // write the device Number Here !  
 
 
 const char * ssid = "Orange-80C3";
@@ -88,6 +81,7 @@ const char * password = "tantan-1";
 
 void TaskPopHTTPPOST( void *pvParameters );
 TaskHandle_t handle_taskPopHTTPPOST;
+
 
 void GPSPopHTTPPOST(File file);
 
@@ -292,9 +286,9 @@ HardwareSerial SerialAT(2);
 #define atTX 16
 void setup() {
   //initialize Serial Monitor
-
-  // esp_task_wdt_init(240, true); //enable panic so ESP32 restarts
-  // esp_task_wdt_add(NULL); //add current thread to WDT watch
+	setCpuFrequencyMhz(80);
+  esp_task_wdt_init(240, true); //enable panic so ESP32 restarts
+  esp_task_wdt_add(NULL); //add current thread to WDT watch
   Serial.begin(115200);
   while (!Serial);
   pinMode(Led_esp,OUTPUT);
@@ -305,7 +299,6 @@ void setup() {
     Serial.println("An Error has occurred while mounting SPIFFS");
     #endif
     blinkLed(1000,100);
-    delay(10);
     // pinMode(HardReset,OUTPUT);
     // delay(500);
     // pinMode(HardReset,LOW);
@@ -327,7 +320,7 @@ void setup() {
   esp_task_wdt_reset();
   pinMode(Reg_Enable,OUTPUT);
   digitalWrite(Reg_Enable,LOW);
-  delay(5000);
+  delay(3000);
   pinMode(Reg_Enable,INPUT);
   pinMode(QwiicEnable,INPUT);
   esp_task_wdt_reset();
@@ -386,7 +379,8 @@ void setup() {
   }
 
   #ifdef SetTime
-  if (rtc.lostPower()) {
+  // if (rtc.lostPower()) {
+    if(true){
       // Serial.println("RTC lost power, let's set the time!");
       Serial.println("Let's set the time!");
 
@@ -426,7 +420,6 @@ void setup() {
     uint8_t hour=now.hour();
 
     uint8_t nextHour = EEPROM.read(0);
-    nextHour=EEPROM.read(0);
     Serial.print("Stocked hour:");
     Serial.println(nextHour);
     Serial.println("");
@@ -451,8 +444,8 @@ void setup() {
   }
   /*********************************/
   
-  if(hour==nextHour){
-    // if(true){
+  // if(hour==nextHour){
+  if(true){
 
     Serial.println("Matching");
     nextHour=nextHour+6;
@@ -480,18 +473,12 @@ void setup() {
 
             root = SPIFFS.open("/rec");
             file = root.openNextFile();
-            if(!file){
-              Serial.println("**************");
+            if(!file || i>=59){
               datatopost=datatopost+data;
-              Serial.println(datatopost);
-              Serial.println("**************");
               Serial.println("Let break");
               break;
             }
-            Serial.println("****");
             datatopost=datatopost+data+",";
-            Serial.println("***");
-
         }
       datatopost=datatopost+"]";
 
@@ -503,7 +490,12 @@ void setup() {
       filewrite.print(datatopost);
       Serial.println(datatopost);
       filewrite.close();
+    }else{
+      Serial.println("No Data to concatenate ");
     }
+  }else{
+
+    Serial.println("No Matching Hour ......");
   }
 
 
@@ -541,7 +533,6 @@ void setup() {
     xTaskCreate(UART_ISR_ROUTINE, "UART_ISR_ROUTINE", 4096, NULL, 12, NULL);
 
     // delay(1000);
-
     // xTaskCreatePinnedToCore(TaskPopHTTPPOST,"Http",10000,NULL,2,&handle_taskPopHTTPPOST,1);
     esp_task_wdt_reset();
 
@@ -576,8 +567,8 @@ void loop() {
             gsmstatus=gsmSetup();
             esp_task_wdt_reset();
           }else{
-            blinkLed(10000,50);
-            digitalWrite(Led_esp,LOW);
+            // blinkLed(10000,50);
+            // digitalWrite(Led_esp,LOW);
             delay(30000);
           }
         }
@@ -600,7 +591,7 @@ void loop() {
     esp_task_wdt_reset();
     delay(5000);
     unsigned long ms=millis()-previousMillis;
-    if((ms>2700000 || CompteurGSM>5) && (simON==false) ){
+    if(ms>2700000 || CompteurGSM>5){
     #ifdef debug
     Serial.println("Let restart the Systeme");
     #endif
@@ -611,7 +602,9 @@ void loop() {
     delay(500);
     esp_restart();
     }
+    Serial.println(ms/1000);
   }
+
 }
 #endif
 
