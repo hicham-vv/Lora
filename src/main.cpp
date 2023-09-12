@@ -21,8 +21,8 @@
 
 #define debug
 // #define SetTime //  Pour définir l'horloge
-
-
+// #define MatchingTest
+     
 #define MasterTracBal
 
 
@@ -443,9 +443,11 @@ void setup() {
     EEPROM.commit(); //For the changes to be saved.
   }
   /*********************************/
-  
-  // if(hour==nextHour){
+  #ifdef MatchingTest
   if(true){
+  #else
+  if(hour==nextHour){
+  #endif
 
     Serial.println("Matching");
     nextHour=nextHour+6;
